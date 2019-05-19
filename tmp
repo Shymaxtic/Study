@@ -1,0 +1,34 @@
+def beautifulBinaryString(binaryString):
+    ASCII_A = 65
+    listA = []
+    listB = []
+    charIdxs = [list(listA), list(listB)]
+    for i in range(len(binaryString)):
+        if (binaryString[i] != 'A' and binaryString[i] != 'B'):
+            return False
+        charIdxs[ord(binaryString[i]) - ASCII_A].append(i)
+    print(charIdxs)
+    if (len(charIdxs[0]) % 2 or len(charIdxs[1]) % 2):
+        return False
+    for charIdx in charIdxs:
+        matchIdx = []
+        for i in range(len(charIdx) - 1):
+            if i in matchIdx:
+                continue
+            for j in range(i + 1, len(charIdx)):
+                if j in matchIdx:
+                    continue
+                if (j  - i) % 2 == 0:   #insect same
+                    continue
+                else:
+                    if (charIdx[j] - charIdx[i] % 2 != 0): #not insect diff
+                        matchIdx.append(i)
+                        matchIdx.append(j)
+                        break
+        print(matchIdx)                        
+        
+                        
+    return True
+    
+    
+print(beautifulBinaryString("BABBBA"))
