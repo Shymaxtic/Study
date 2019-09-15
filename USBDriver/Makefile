@@ -1,4 +1,4 @@
-obj-m := shymaxtic_module.o
+obj-m := shymaxtic_usb_driver.o
 
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
 PWD = $(shell pwd)
