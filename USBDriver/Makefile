@@ -1,3 +1,4 @@
+# CONFIG_MODULE_SIG=n
 # obj-m := nulldriver.o
 # obj-m := shymaxtic_usb_driver.o
 obj-m := shymaxtic_usb_device.o

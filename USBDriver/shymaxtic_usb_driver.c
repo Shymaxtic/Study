@@ -7,7 +7,6 @@
 
 #define D_VENDOR_ID         0x1ea7
 #define D_PRODUCT_ID        0x0064
-#define D_DEVICE_NAME       "Shymaxtic USB"
 
 
 int i = 0;
@@ -92,61 +91,13 @@ static int __init shymaxtic_usb_driver_init(void) {
     if (ret < 0) {
         printk(KERN_ERR "Shymaxtic USB: Cannot register usb\n");
     }
-
-    // Allocate memory in kernel for our device.
-    shymaxtic_dev = kzalloc(sizeof(struct shymaxtic_device_t), GFP_KERNEL);
-    if (shymaxtic_dev == NULL) {
-        printk(KERN_ERR "Faile to allocate shymaxtic device\n");
-        return -ENOMEM;
-    }
-
-    // Registry major, minor number
-    ret = alloc_chrdev_region(&shymaxtic_dev->dev_num, 0, 1, D_DEVICE_NAME);
-    if (ret < 0) {
-        printk(KERN_ERR "Failed to allocate a major number\n");
-        return ret;
-    }
-
-    // Add to /sys/class
-    shymaxtic_dev->cl = class_create(THIS_MODULE, "shymaxticdrv");
-    if (shymaxtic_dev->cl == NULL) {
-        unregister_chrdev_region(shymaxtic_dev->dev_num, 1);
-        return PTR_ERR(shymaxtic_dev->cl);
-    }
-
-    // Add to /dev
-    if (device_create(shymaxtic_dev->cl, NULL, shymaxtic_dev->dev_num, NULL, "shymaxticdevice") == NULL) {
-        class_destroy(shymaxtic_dev->cl);
-        unregister_chrdev_region(shymaxtic_dev->dev_num, 1);
-        return PTR_ERR(NULL);
-    }
-
-    // Allocate cdev
-    shymaxtic_dev->cdev = cdev_alloc();
-    if (shymaxtic_dev->cdev == NULL) {
-        printk(KERN_ERR "Failed to allocate cdev\n");
-        return PTR_ERR(shymaxtic_dev->cdev);
-    }
-    cdev_init(shymaxtic_dev->cdev, &fops);
-
-    // Registry cdev with VFS
-    ret = cdev_add(shymaxtic_dev->cdev, shymaxtic_dev->dev_num, 1); 
-    if (ret < 0) {
-        device_destroy(shymaxtic_dev->cl, shymaxtic_dev->dev_num);
-        class_destroy(shymaxtic_dev->cl);
-        unregister_chrdev_region(shymaxtic_dev->dev_num, 1);
-        return ret;
-    }
-    return 0;
+    ret = shymaxtic_device_init(&shymaxtic_dev);
+    return ret;
 }
 // function for rmmod module.
 static void __exit shymaxtic_usb_driver_exit(void) {
     usb_deregister(&shymaxtic_usb_driver);
-    cdev_del(shymaxtic_dev->cdev);
-    device_destroy(shymaxtic_dev->cl, shymaxtic_dev->dev_num);
-    class_destroy(shymaxtic_dev->cl);
-    unregister_chrdev_region(shymaxtic_dev->dev_num, 1);
-    kfree(shymaxtic_dev);
+    shymaxtic_device_deinit(shymaxtic_dev);
     printk(KERN_INFO "Unloaded module\n");
 }
 
