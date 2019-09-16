@@ -45,7 +45,6 @@ static int shymaxtic_device_open(struct inode* inode, struct file* filep) {
 
 static int shymaxtic_device_close(struct inode* inode, struct file* filep) {
     // Deallocate device file
-    int ret = 0;
     struct shymaxtic_device_file_t* shymaxtic_file = NULL;
     shymaxtic_file = (struct shymaxtic_device_file_t*)filep->private_data;
     if (shymaxtic_file == NULL) {
