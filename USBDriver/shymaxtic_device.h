@@ -27,6 +27,7 @@ struct shymaxtic_device_file_t {
 // File operation callbacks.
 static int shymaxtic_device_open(struct inode* inode, struct file* filep);
 static int shymaxtic_device_close(struct inode* inode, struct file* filep);
+static long shymaxtic_device_ioctl(struct file* filep, unsigned int cmd, unsigned long arg__);
 static ssize_t shymaxtic_device_read(struct file *f, char __user *buf, size_t len, loff_t *off);
 static ssize_t shymaxtic_device_write(struct file *f, const char __user *buf, size_t len, loff_t *off);
 

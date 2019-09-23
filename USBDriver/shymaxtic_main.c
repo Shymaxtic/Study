@@ -5,8 +5,8 @@
 #include <linux/slab.h>
 #include "shymaxtic_device.h"
 
-#define D_VENDOR_ID         0x1ea7
-#define D_PRODUCT_ID        0x0064
+#define D_VENDOR_ID         0x1cbe
+#define D_PRODUCT_ID        0x0003
 
 
 int i = 0;
@@ -29,7 +29,7 @@ static int shymaxitc_usb_driver_probe(struct usb_interface* usb_if, const struct
     struct usb_device *udev = NULL;
     usb_host_if = usb_if->cur_altsetting;
     dev_info(&usb_if->dev, 
-            "Pen i/f %d now probed: (%04X:%04X)\n", 
+            "Shymaxtic USB %d now probed: (%04X:%04X)\n", 
             usb_host_if->desc.bInterfaceNumber,
             id->idVendor, id->idProduct);
     dev_info(&usb_if->dev, 

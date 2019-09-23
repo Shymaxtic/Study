@@ -4,16 +4,19 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/usb.h>
+#include <linux/uaccess.h>
+#include "shymaxtic_device_file_ioctl.h"
 
 #define D_DEVICE_NAME       "Shymaxtic USB"
 
 
- struct file_operations fops = {
+ struct file_operations shymaxtic_fops = {
     .owner = THIS_MODULE,
     .open = shymaxtic_device_open,
     .release = shymaxtic_device_close,
     .read = shymaxtic_device_read,
-    .write = shymaxtic_device_write
+    .write = shymaxtic_device_write,
+    .unlocked_ioctl = shymaxtic_device_ioctl
 };
 
 struct shymaxtic_device_t *shymaxtic_dev = NULL;
@@ -54,6 +57,52 @@ static int shymaxtic_device_close(struct inode* inode, struct file* filep) {
     kfree(shymaxtic_file);
     printk(KERN_INFO "Closed file");
     return 0;
+}
+
+static long shymaxtic_device_ioctl(struct file* filep, unsigned int cmd, unsigned long arg__) {
+    struct shymaxtic_device_file_t* shymaxtic_file = NULL;
+    int result = 0;
+    shymaxtic_file = (struct shymaxtic_device_file_t* )filep->private_data;
+    if (shymaxtic_file == NULL) {
+        printk(KERN_WARNING "Device file not allocated yet\n");
+        return -ENOMEM;
+    }
+    struct shymaxtic_device_t* shymaxtic_dev = shymaxtic_file->dev;
+    if (shymaxtic_dev == NULL) {
+        printk(KERN_WARNING "Device not allocated yet\n");
+        return -ENOMEM;
+    }
+    struct usb_device* udev= shymaxtic_dev->udev;
+    if (udev == NULL) {
+        printk(KERN_WARNING "Usb device not allocated yet\n");
+        return -ENOMEM;
+    }
+    switch (cmd)
+    {
+    case IOCTL_SHYMAXTIC_PING: {
+        // TODO: ping device.
+    }        
+        break;
+    case IOCTL_SHYMAXTIC_GET_BAUDRATE: {
+        // Cast arg_ to address of user space varialbe
+        uint64_t __user *user_params = (int64_t*)arg__;
+        // Get data in kernel space.
+        uint64_t baudrate = 0;
+        if (unlikely(user_params == NULL)) {
+            result = -EINVAL;
+            break;
+        }
+        // TODO: get baudrate from device.
+        if (result == 0) {
+            // Put from kernel space to user space.
+            put_user(baudrate, user_params);
+        }
+    }
+        break;
+    default:
+        break;
+    }
+    return result;
 }
 
 static ssize_t shymaxtic_device_read(struct file *f, char __user *buf, size_t len, loff_t *off) {
@@ -109,7 +158,7 @@ int shymaxtic_device_init(struct shymaxtic_device_t** gdevp) {
         printk(KERN_ERR "Failed to allocate cdev\n");
         return PTR_ERR(gdev->cdev);
     }
-    cdev_init(gdev->cdev, &fops);
+    cdev_init(gdev->cdev, &shymaxtic_fops);
 
     // Registry cdev with VFS
     ret = cdev_add(gdev->cdev, gdev->dev_num, 1); 
