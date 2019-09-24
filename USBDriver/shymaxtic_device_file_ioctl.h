@@ -1,6 +1,6 @@
 #ifndef SHYMAXTIC_DEVICE_FILE_IOCTL_H
 #define SHYMAXTIC_DEVICE_FILE_IOCTL_H
-
+#include <stdint.h>
 
 
 #define IOCTL_SHYMAXTIC_PING            _IOW('s', 102, uint32_t)
