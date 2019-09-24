@@ -10,10 +10,10 @@ OBJS = $(SRCS:.cpp=.o)
 all: $(TARGET)
 
 clean:
-	@echo rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET)
 
 $(TARGET): $(OBJS)
-	@echo $(CC) $(LDFLAGS) $(INCLUDEPATH) -o $@ $^
+	$(CC) $(LDFLAGS) $(INCLUDEPATH) -o $@ $^
 
 $(OBJS)	: $(SRCS)
-	@echo $(CC) $(CPPFLAGS) $(INCLUDEPATH) -o $@ $^
+	$(CC) $(CPPFLAGS) $(INCLUDEPATH) -c -o $@ $^

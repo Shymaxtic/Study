@@ -33,7 +33,7 @@ static int shymaxtic_device_open(struct inode* inode, struct file* filep) {
     shymaxtic_file->dev = shymaxtic_dev;
     filep->private_data = shymaxtic_file;
     if (shymaxtic_dev->udev == NULL) {
-        printk(KERN_WARNING "Usb device not present\n");
+        printk(KERN_WARNING "USB device not present\n");
         return -ENOMEM;
     }
     // Do task
@@ -111,8 +111,38 @@ static ssize_t shymaxtic_device_read(struct file *f, char __user *buf, size_t le
     return 0;
 }
 
-static ssize_t shymaxtic_device_write(struct file *f, const char __user *buf, size_t len, loff_t *off) {
+static ssize_t shymaxtic_device_write(struct file *filep, const char __user *buf, size_t len, loff_t *off) {
     // TODO
+    // Write a byte to usb device.
+    struct shymaxtic_device_file_t* shymaxtic_file = NULL;
+    int result = 0;
+    int pipeOut = 0;
+    int actualLen = 0;
+    int ret = 0;
+    shymaxtic_file = (struct shymaxtic_device_file_t* )filep->private_data;
+    if (shymaxtic_file == NULL) {
+        printk(KERN_WARNING "Device file not allocated yet\n");
+        return -ENOMEM;
+    }
+    struct shymaxtic_device_t* shymaxtic_dev = shymaxtic_file->dev;
+    if (shymaxtic_dev == NULL) {
+        printk(KERN_WARNING "Device not allocated yet\n");
+        return -ENOMEM;
+    }
+    struct usb_device* udev = shymaxtic_dev->udev;
+    if (udev == NULL) {
+        printk(KERN_WARNING "Usb device not allocated yet\n");
+        return -ENOMEM;
+    }
+    pipeOut = usb_sndbulkpipe(udev, 1);
+    ret = usb_bulk_msg(udev, pipeOut, 'Q', 1, &actualLen, 10000);
+    if (ret != 0) {
+        printk(KERN_ERR "Cannot send data to device USB\n");
+        return ret;
+    }
+    if (actualLen != 1) {
+        printk(KERN_ERR "Sent data incompletely\n");
+    }
     printk(KERN_INFO "Write file\n");
     return len;
 }
