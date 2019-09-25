@@ -1,5 +1,6 @@
 CC = g++
 CPPFLAGS = -fPIC -Wall -Wextra -O2 -g
+DEFINES = -D USER_APP
 INCLUDEPATH = -I./ -I../
 RM = rm -f
 TARGET = test
@@ -16,4 +17,4 @@ $(TARGET): $(OBJS)
 	$(CC) $(LDFLAGS) $(INCLUDEPATH) -o $@ $^
 
 $(OBJS)	: $(SRCS)
-	$(CC) $(CPPFLAGS) $(INCLUDEPATH) -c -o $@ $^
+	$(CC) $(CPPFLAGS) $(INCLUDEPATH) $(DEFINES) -c -o $@ $^
