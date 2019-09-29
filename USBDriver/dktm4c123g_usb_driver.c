@@ -36,7 +36,7 @@ static ssize_t pen_read(struct file *f, char __user *buf, size_t cnt, loff_t *of
     }
     if (copy_to_user(buf, bulk_buf, MIN(cnt, read_cnt))) {
         return -EFAULT;
-    }
+    }   
     return MIN(cnt, read_cnt);
 }
 
