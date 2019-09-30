@@ -1,8 +1,7 @@
 # CONFIG_MODULE_SIG=n
 # obj-m := nulldriver.o
 # obj-m := shymaxtic_usb_driver.o
-# obj-m := dktm4c123g_usb_driver.o
-obj-m := usb_skeleton.o
+obj-m := dktm4c123g_usb_driver.o
 # obj-m := shymaxtic_usb.o
 # shymaxtic_usb-y := shymaxtic_main.o \
 # 				shymaxtic_device.o
