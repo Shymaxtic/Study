@@ -46,6 +46,10 @@
 #include "utils/ustdlib.h"
 #include "drivers/cfal96x64x16.h"
 #include "usb_bulk_structs.h"
+#include "usb_can_data.h"
+#include <string.h>
+
+#define DEBUG
 
 //*****************************************************************************
 //
@@ -204,116 +208,152 @@ static uint32_t
 EchoNewDataToHost(tUSBDBulkDevice *psDevice, uint8_t *pi8Data,
                   uint_fast32_t ui32NumBytes)
 {
-    uint_fast32_t ui32Loop, ui32Space, ui32Count;
-    uint_fast32_t ui32ReadIndex;
-    uint_fast32_t ui32WriteIndex;
-    tUSBRingBufObject sTxRing;
+//    uint_fast32_t ui32Loop, ui32Space, ui32Count;
+//    uint_fast32_t ui32ReadIndex;
+//    uint_fast32_t ui32WriteIndex;
+//    tUSBRingBufObject sTxRing;
+//
+//    //
+//    // Get the current buffer information to allow us to write directly to
+//    // the transmit buffer (we already have enough information from the
+//    // parameters to access the receive buffer directly).
+//    //
+//    USBBufferInfoGet(&g_sTxBuffer, &sTxRing);
+//
+//    //
+//    // How much space is there in the transmit buffer?
+//    //
+//    ui32Space = USBBufferSpaceAvailable(&g_sTxBuffer);
+//
+//    //
+//    // How many characters can we process this time round?
+//    //
+//    ui32Loop = (ui32Space < ui32NumBytes) ? ui32Space : ui32NumBytes;
+//    ui32Count = ui32Loop;
+//
+//    //
+//    // Update our receive counter.
+//    //
+//    g_ui32RxCount += ui32NumBytes;
+//
+//    //
+//    // Dump a debug message.
+//    //
+//    DEBUG_PRINT("Received %d bytes\n", ui32NumBytes);
+//
+//    //
+//    // Set up to process the characters by directly accessing the USB buffers.
+//    //
+//    ui32ReadIndex = (uint32_t)(pi8Data - g_pui8USBRxBuffer);
+//    ui32WriteIndex = sTxRing.ui32WriteIndex;
+//
+//    while(ui32Loop)
+//    {
+//        //
+//        // Copy from the receive buffer to the transmit buffer converting
+//        // character case on the way.
+//        //
+//
+//        //
+//        // Is this a lower case character?
+//        //
+//        if((g_pui8USBRxBuffer[ui32ReadIndex] >= 'a') &&
+//           (g_pui8USBRxBuffer[ui32ReadIndex] <= 'z'))
+//        {
+//            //
+//            // Convert to upper case and write to the transmit buffer.
+//            //
+//            g_pui8USBTxBuffer[ui32WriteIndex] =
+//                (g_pui8USBRxBuffer[ui32ReadIndex] - 'a') + 'A';
+//        }
+//        else
+//        {
+//            //
+//            // Is this an upper case character?
+//            //
+//            if((g_pui8USBRxBuffer[ui32ReadIndex] >= 'A') &&
+//               (g_pui8USBRxBuffer[ui32ReadIndex] <= 'Z'))
+//            {
+//                //
+//                // Convert to lower case and write to the transmit buffer.
+//                //
+//                g_pui8USBTxBuffer[ui32WriteIndex] =
+//                    (g_pui8USBRxBuffer[ui32ReadIndex] - 'Z') + 'z';
+//            }
+//            else
+//            {
+//                //
+//                // Copy the received character to the transmit buffer.
+//                //
+//                g_pui8USBTxBuffer[ui32WriteIndex] =
+//                    g_pui8USBRxBuffer[ui32ReadIndex];
+//            }
+//        }
+//
+//        //
+//        // Move to the next character taking care to adjust the pointer for
+//        // the buffer wrap if necessary.
+//        //
+//        ui32WriteIndex++;
+//        ui32WriteIndex =
+//            (ui32WriteIndex == BULK_BUFFER_SIZE) ? 0 : ui32WriteIndex;
+//
+//        ui32ReadIndex++;
+//        ui32ReadIndex = (ui32ReadIndex == BULK_BUFFER_SIZE) ? 0 : ui32ReadIndex;
+//
+//        ui32Loop--;
+//    }
+//
+//    //
+//    // We've processed the data in place so now send the processed data
+//    // back to the host.
+//    //
+//    USBBufferDataWritten(&g_sTxBuffer, ui32Count);
+//
+//    DEBUG_PRINT("Wrote %d bytes\n", ui32Count);
+//
+//    //
+//    // We processed as much data as we can directly from the receive buffer so
+//    // we need to return the number of bytes to allow the lower layer to
+//    // update its read pointer appropriately.
+//    //
+//    return(ui32Count);
 
-    //
-    // Get the current buffer information to allow us to write directly to
-    // the transmit buffer (we already have enough information from the
-    // parameters to access the receive buffer directly).
-    //
-    USBBufferInfoGet(&g_sTxBuffer, &sTxRing);
-
-    //
-    // How much space is there in the transmit buffer?
-    //
-    ui32Space = USBBufferSpaceAvailable(&g_sTxBuffer);
-
-    //
-    // How many characters can we process this time round?
-    //
-    ui32Loop = (ui32Space < ui32NumBytes) ? ui32Space : ui32NumBytes;
-    ui32Count = ui32Loop;
-
-    //
-    // Update our receive counter.
-    //
-    g_ui32RxCount += ui32NumBytes;
-
-    //
-    // Dump a debug message.
-    //
-    DEBUG_PRINT("Received %d bytes\n", ui32NumBytes);
-
-    //
-    // Set up to process the characters by directly accessing the USB buffers.
-    //
-    ui32ReadIndex = (uint32_t)(pi8Data - g_pui8USBRxBuffer);
-    ui32WriteIndex = sTxRing.ui32WriteIndex;
-
-    while(ui32Loop)
-    {
-        //
-        // Copy from the receive buffer to the transmit buffer converting
-        // character case on the way.
-        //
-
-        //
-        // Is this a lower case character?
-        //
-        if((g_pui8USBRxBuffer[ui32ReadIndex] >= 'a') &&
-           (g_pui8USBRxBuffer[ui32ReadIndex] <= 'z'))
-        {
-            //
-            // Convert to upper case and write to the transmit buffer.
-            //
-            g_pui8USBTxBuffer[ui32WriteIndex] =
-                (g_pui8USBRxBuffer[ui32ReadIndex] - 'a') + 'A';
-        }
-        else
-        {
-            //
-            // Is this an upper case character?
-            //
-            if((g_pui8USBRxBuffer[ui32ReadIndex] >= 'A') &&
-               (g_pui8USBRxBuffer[ui32ReadIndex] <= 'Z'))
-            {
-                //
-                // Convert to lower case and write to the transmit buffer.
-                //
-                g_pui8USBTxBuffer[ui32WriteIndex] =
-                    (g_pui8USBRxBuffer[ui32ReadIndex] - 'Z') + 'z';
+    // dummy logic code
+    // Read available RX buffer.
+    uint_fast32_t rxAvailable = USBBufferDataAvailable(&g_sRxBuffer);
+    DEBUG_PRINT("RX available: %d\n", rxAvailable);
+    // Read data from rx buffer.
+    usb_can_packet_t readPck;
+    usb_can_packet_t sentPck;
+    if (rxAvailable >= sizeof(usb_can_packet_t)) {
+        if (USBBufferRead(&g_sRxBuffer, &readPck, sizeof(usb_can_packet_t)) == sizeof(usb_can_packet_t)) {
+            DEBUG_PRINT("Received command type: %d\n", readPck.type);
+            switch (readPck.type) {
+            case E_USB_CAN_PING: {
+                sentPck.type = readPck.type;
+                while (USBBufferSpaceAvailable(&g_sTxBuffer) < sizeof(usb_can_packet_t)) {
+                    SysCtlDelay(100);
+                }
+                USBBufferWrite(&g_sTxBuffer, &sentPck, sizeof(usb_can_packet_t));
             }
-            else
-            {
-                //
-                // Copy the received character to the transmit buffer.
-                //
-                g_pui8USBTxBuffer[ui32WriteIndex] =
-                    g_pui8USBRxBuffer[ui32ReadIndex];
+            break;
+            case E_USB_CAN_GET_BAUDRATE: {
+                sentPck.type = readPck.type;
+                uint64_t baudrate = 2607;
+                memcpy(sentPck.data, &baudrate, sizeof(uint64_t));
+                while (USBBufferSpaceAvailable(&g_sTxBuffer) < sizeof(usb_can_packet_t)) {
+                    SysCtlDelay(100);
+                }
+                USBBufferWrite(&g_sTxBuffer, &sentPck, sizeof(usb_can_packet_t));
+            }
+            break;
+            default:
+                break;
             }
         }
-
-        //
-        // Move to the next character taking care to adjust the pointer for
-        // the buffer wrap if necessary.
-        //
-        ui32WriteIndex++;
-        ui32WriteIndex =
-            (ui32WriteIndex == BULK_BUFFER_SIZE) ? 0 : ui32WriteIndex;
-
-        ui32ReadIndex++;
-        ui32ReadIndex = (ui32ReadIndex == BULK_BUFFER_SIZE) ? 0 : ui32ReadIndex;
-
-        ui32Loop--;
     }
-
-    //
-    // We've processed the data in place so now send the processed data
-    // back to the host.
-    //
-    USBBufferDataWritten(&g_sTxBuffer, ui32Count);
-
-    DEBUG_PRINT("Wrote %d bytes\n", ui32Count);
-
-    //
-    // We processed as much data as we can directly from the receive buffer so
-    // we need to return the number of bytes to allow the lower layer to
-    // update its read pointer appropriately.
-    //
-    return(ui32Count);
+    return 0;
 }
 
 //*****************************************************************************
@@ -454,6 +494,7 @@ RxHandler(void *pvCBData, uint32_t ui32Event, uint32_t ui32MsgValue,
             // Read the new packet and echo it back to the host.
             //
             return(EchoNewDataToHost(psDevice, pvMsgData, ui32MsgValue));
+
         }
 
         //
