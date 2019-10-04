@@ -328,10 +328,10 @@ EchoNewDataToHost(tUSBDBulkDevice *psDevice, uint8_t *pi8Data,
     usb_can_packet_t sentPck;
     if (rxAvailable >= sizeof(usb_can_packet_t)) {
         if (USBBufferRead(&g_sRxBuffer, &readPck, sizeof(usb_can_packet_t)) == sizeof(usb_can_packet_t)) {
-            DEBUG_PRINT("Received command type: %d\n", readPck.type);
-            switch (readPck.type) {
+            DEBUG_PRINT("Received command type: %d\n", readPck.u8type);
+            switch (readPck.u8type) {
             case E_USB_CAN_PING: {
-                sentPck.type = readPck.type;
+                sentPck.u8type = readPck.u8type;
                 while (USBBufferSpaceAvailable(&g_sTxBuffer) < sizeof(usb_can_packet_t)) {
                     SysCtlDelay(100);
                 }
@@ -339,9 +339,23 @@ EchoNewDataToHost(tUSBDBulkDevice *psDevice, uint8_t *pi8Data,
             }
             break;
             case E_USB_CAN_GET_BAUDRATE: {
-                sentPck.type = readPck.type;
+                sentPck.u8type = readPck.u8type;
                 uint64_t baudrate = 2607;
-                memcpy(sentPck.data, &baudrate, sizeof(uint64_t));
+                memcpy(sentPck.au8data, &baudrate, sizeof(uint64_t));
+                while (USBBufferSpaceAvailable(&g_sTxBuffer) < sizeof(usb_can_packet_t)) {
+                    SysCtlDelay(100);
+                }
+                USBBufferWrite(&g_sTxBuffer, &sentPck, sizeof(usb_can_packet_t));
+            }
+            break;
+            case E_USB_CAN_GET_CAN_FRAME: {
+                sentPck.u8type = readPck.u8type;
+                usb_can_frame_info_t canInfo;
+                canInfo.u32id = 26;
+                canInfo.u8info = 1;
+                // serialize can frame info to usb packet.
+                sentPck.au8data[0] = 1;
+                memcpy(&sentPck.au8data[1], &canInfo, sizeof(usb_can_frame_info_t));
                 while (USBBufferSpaceAvailable(&g_sTxBuffer) < sizeof(usb_can_packet_t)) {
                     SysCtlDelay(100);
                 }

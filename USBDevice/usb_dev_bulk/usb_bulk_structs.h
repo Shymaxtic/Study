@@ -32,7 +32,7 @@
 // a maximum-sized USB packet.
 //
 //*****************************************************************************
-#define BULK_BUFFER_SIZE 256
+#define BULK_BUFFER_SIZE 512
 
 extern uint32_t RxHandler(void *pvCBData, uint32_t ui32Event,
                                uint32_t ui32MsgValue, void *pvMsgData);
