@@ -45,6 +45,7 @@ class OutputFile:
         self.mWorkBook = None
         self.mSheet = None
         self.mHeaderList = []
+        self.mColumCount = 0
 
     def GetValueWithMergeLookup(self, cell):
         idx = cell.coordinate
@@ -90,6 +91,7 @@ class OutputFile:
     def Open(self):
         self.mWorkBook = openpyxl.load_workbook(self.mPath)
         self.mSheet = self.mWorkBook[self.mDefaultSheetName]
+        self.mColumCount = len(self.mSheet[self.mHeaderArea][0])
         self.mHeaderList = self.GetHeaderList()
                 
     def Close(self):
@@ -114,36 +116,36 @@ class OutputFile:
         row = self.mSheet[matchHeader[0]].row + rowOffset
         self.mSheet.cell(row=row, column=col).value = value    
 
+    def GetMostChildHeaderName(self, column: int):
+        for i in range(len(self.mHeaderList), 0, -1):
+            if (self.mHeaderList[i-1][3].column == column):    
+                return self.mHeaderList[i-1][0]
+        return None                
+
     def Read(self, rowOffset: int):
         returnValue = {}
         mostChildRow = int(self.mHeaderArea.split(":")[1][-1])
-        for header in self.mHeaderList:
-            # get the most child header
-            if header[3].row == mostChildRow:
-                row = header[3].row +rowOffset
-                returnValue[header[0]] = self.mSheet.cell(row=row,column=header[3].column).value
-
+        for i in range(self.mColumCount):
+            headerName = self.GetMostChildHeaderName(column=i+1)
+            returnValue[headerName] = self.mSheet.cell(row=mostChildRow+rowOffset,column=i+1).value            
         return returnValue
 
 
 # Example
 outputFile = OutputFile("D:/Workspace/SuportTool/testTargetList_template.xlsx", "A1:J2")        
 outputFile.Open()
-for i in range(1, 9):
-    outputFile.Write(headerStruct=["Start Date", "Test Duration"],  rowOffset=i, value="10/10") 
-    outputFile.Write(headerStruct=["End Date", "Test Duration"],    rowOffset=i, value="11/10")
-    outputFile.Write(headerStruct=["Start Date", "Fix Duration"],   rowOffset=i, value="10/11") 
-    outputFile.Write(headerStruct=["End Date", "Fix Duration"],     rowOffset=i, value="11/11")           
-    outputFile.Write(headerStruct=["File Name", ""],                rowOffset=i, value="Test.cpp") 
-    outputFile.Write(headerStruct=["Function Name", ""],            rowOffset=i, value="TestFunction")
-    outputFile.Write(headerStruct=["C0"],                           rowOffset=i, value="100%")
-    outputFile.Write(headerStruct=["C1"],                           rowOffset=i, value="100%")
-    outputFile.Write(headerStruct=["Result"],                       rowOffset=i, value="OK")  
+# for i in range(1, 9):
+#     outputFile.Write(headerStruct=["Start Date", "Test Duration"],  rowOffset=i, value="10/10") 
+#     outputFile.Write(headerStruct=["End Date", "Test Duration"],    rowOffset=i, value="11/10")
+#     outputFile.Write(headerStruct=["Start Date", "Fix Duration"],   rowOffset=i, value="10/11") 
+#     outputFile.Write(headerStruct=["End Date", "Fix Duration"],     rowOffset=i, value="11/11")           
+#     outputFile.Write(headerStruct=["File Name", ""],                rowOffset=i, value="Test.cpp") 
+#     outputFile.Write(headerStruct=["Function Name", ""],            rowOffset=i, value="TestFunction")
+#     outputFile.Write(headerStruct=["C0"],                           rowOffset=i, value="100%")
+#     outputFile.Write(headerStruct=["C1"],                           rowOffset=i, value="100%")
+#     outputFile.Write(headerStruct=["Result"],                       rowOffset=i, value="OK")  
 
 val = outputFile.Read(rowOffset=1)
-print(val)
+print(112, val)
 
 outputFile.Close()
-
-
-
