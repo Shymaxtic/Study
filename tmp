@@ -32,3 +32,66 @@ def beautifulBinaryString(binaryString):
     
     
 print(beautifulBinaryString("BABBBA"))
+
+
+
+import os
+import openpyxl
+
+filePath = "E:/Workspace/HiICS/SVN/deliverables/trunk/implementation/02. SupportTool/template/testTargetList_template.xlsx"
+headerCoor = ["A1", "N2"]
+
+# get excel template.
+wb = openpyxl.load_workbook(filePath)
+sheet = wb["Sheet1"]
+
+# for mergedCell in sheet.merged_cells.ranges:
+#     print(mergedCell)
+#     print(type(mergedCell))
+
+headerCells = sheet[headerCoor[0]: headerCoor[1]]
+
+# check if is header
+def IsValidHeader(cellObj):
+    if (cellObj.value == None):
+        return False
+    return True        
+
+# get value from merged cell
+def GetValueWithMergeLookup(sheet, cell):
+    idx = cell.coordinate
+    print(type(idx))
+    for cellRange in sheet.merged_cells.ranges:
+        merged_cells = list(openpyxl.utils.rows_from_range(cellRange.__str__()))
+        print(29, merged_cells)
+        for ecell in merged_cells:
+            print(ecell)
+            if idx in ecell:
+                # If this is a merged cell,
+                # return  the first cell of the merge range
+                print(35, merged_cells[0])
+                return sheet[ecell[0]].value
+    return sheet[idx].value
+
+
+ret = GetValueWithMergeLookup(sheet, sheet['G1'])
+print(41, ret)
+ret = GetValueWithMergeLookup(sheet, sheet['M1'])
+print(43, ret)
+ret = GetValueWithMergeLookup(sheet, sheet['H1'])
+print(45, ret)
+
+structCellList = []
+# iterator each cell to determine struct
+for rowOfCellObjs in headerCells:
+    for cellObj in rowOfCellObjs:
+        if IsValidHeader(cellObj):
+            print(cellObj.coordinate, cellObj.value)
+    print('--- END OF ROW ---')
+
+
+
+
+
+
+
