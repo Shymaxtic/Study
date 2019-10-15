@@ -50,12 +50,10 @@ class OutputFile:
         idx = cell.coordinate
         for cellRange in self.mSheet.merged_cells.ranges:
             merged_cells = list(openpyxl.utils.rows_from_range(cellRange.__str__()))
-            # print(29, merged_cells)
             for ecell in merged_cells:
                 # print(ecell)
                 if idx in ecell:
                     # If this is a merged cell, return  the first cell of the merge range
-                    # print(35, merged_cells[0])
                     return self.mSheet[ecell[0]].value
         return self.mSheet[idx].value       
 
@@ -85,7 +83,7 @@ class OutputFile:
                         parentHeader = upperValue
                         header = cellObj.value
                         coordinate = cellObj.coordinate
-                        headerStruct = (header, parentHeader, coordinate)
+                        headerStruct = [header, parentHeader, coordinate, cellObj]
                         headerList.append(headerStruct)
         return headerList                        
 
@@ -93,15 +91,17 @@ class OutputFile:
         self.mWorkBook = openpyxl.load_workbook(self.mPath)
         self.mSheet = self.mWorkBook[self.mDefaultSheetName]
         self.mHeaderList = self.GetHeaderList()
-
+                
+    def Close(self):
+        self.mWorkBook.save(self.mPath)
 
     def Write(self, headerStruct: list, rowOffset: int, value: str):
         headerName = headerStruct[0]
-        parentName = headerStruct[1]
+        parentName = None if len(headerStruct) < 2 else headerStruct[1]
         matchHeader = []
         for header in self.mHeaderList:
             if (header[0] == headerName):
-                if (parentName == None or header[1] == parentName):
+                if (parentName == None or not parentName or header[1] == parentName):
                     matchHeader.append(header[2])
         if (len(matchHeader) == 0):
             print("Cannot find header: ", headerName)
@@ -109,30 +109,41 @@ class OutputFile:
         if (len(matchHeader) > 1):
             print("More than one header: ", headerName)
             return
-        print(matchHeader)
+        # print(matchHeader)
         col = self.mSheet[matchHeader[0]].column
         row = self.mSheet[matchHeader[0]].row + rowOffset
         self.mSheet.cell(row=row, column=col).value = value    
-                
-    def Close(self):
-        self.mWorkBook.save(self.mPath)
 
-filePath = "D:/Workspace/SuportTool/testTargetList_template.xlsx"
-headerCoor = "A1:I2"
-outputFile = OutputFile(filePath, headerCoor)        
-for header in outputFile.mHeaderList:
-    print(header)
+    def Read(self, rowOffset: int):
+        returnValue = {}
+        mostChildRow = int(self.mHeaderArea.split(":")[1][-1])
+        for header in self.mHeaderList:
+            # get the most child header
+            if header[3].row == mostChildRow:
+                row = header[3].row +rowOffset
+                returnValue[header[0]] = self.mSheet.cell(row=row,column=header[3].column).value
 
+        return returnValue
+
+
+# Example
+outputFile = OutputFile("D:/Workspace/SuportTool/testTargetList_template.xlsx", "A1:J2")        
 outputFile.Open()
-headerStruct = ["Start Date", "Test Duration"]
-outputFile.Write(headerStruct, 1, "Hello")    
-outputFile.Write(headerStruct, 2, "How")
-outputFile.Write(headerStruct, 3, "are")
-outputFile.Write(headerStruct, 4, "you")
+for i in range(1, 9):
+    outputFile.Write(headerStruct=["Start Date", "Test Duration"],  rowOffset=i, value="10/10") 
+    outputFile.Write(headerStruct=["End Date", "Test Duration"],    rowOffset=i, value="11/10")
+    outputFile.Write(headerStruct=["Start Date", "Fix Duration"],   rowOffset=i, value="10/11") 
+    outputFile.Write(headerStruct=["End Date", "Fix Duration"],     rowOffset=i, value="11/11")           
+    outputFile.Write(headerStruct=["File Name", ""],                rowOffset=i, value="Test.cpp") 
+    outputFile.Write(headerStruct=["Function Name", ""],            rowOffset=i, value="TestFunction")
+    outputFile.Write(headerStruct=["C0"],                           rowOffset=i, value="100%")
+    outputFile.Write(headerStruct=["C1"],                           rowOffset=i, value="100%")
+    outputFile.Write(headerStruct=["Result"],                       rowOffset=i, value="OK")  
+
+val = outputFile.Read(rowOffset=1)
+print(val)
+
 outputFile.Close()
-
-
-
 
 
 
