@@ -35,67 +35,101 @@ print(beautifulBinaryString("BABBBA"))
 
 
 
-import os
 import openpyxl
 
+class OutputFile:
+    def __init__(self, path, headerArea):
+        self.mDefaultSheetName = "Sheet1"
+        self.mPath = path
+        self.mHeaderArea = headerArea
+        self.mWorkBook = None
+        self.mSheet = None
+        self.mHeaderList = []
+
+    def GetValueWithMergeLookup(self, cell):
+        idx = cell.coordinate
+        for cellRange in self.mSheet.merged_cells.ranges:
+            merged_cells = list(openpyxl.utils.rows_from_range(cellRange.__str__()))
+            # print(29, merged_cells)
+            for ecell in merged_cells:
+                # print(ecell)
+                if idx in ecell:
+                    # If this is a merged cell, return  the first cell of the merge range
+                    # print(35, merged_cells[0])
+                    return self.mSheet[ecell[0]].value
+        return self.mSheet[idx].value       
+
+    def IsHeaderCell(self, cell):
+        idx = cell.coordinate
+        for cellRange in self.mSheet.merged_cells.ranges:
+            # get list of cells in range.
+            merged_cells = list(openpyxl.utils.rows_from_range(cellRange.__str__()))
+            for ecell in merged_cells:
+                # if this cell is in range, and this cell is the first cell.
+                if idx in ecell:
+                    return ecell[0] == idx
+        # if this cell is not merged cell, check it value.                
+        return cell.value != None    
+
+    def GetHeaderList(self):
+        headerList = []
+        # iterator each cell to determine struct
+        for rowOfCellObjs in self.mSheet[self.mHeaderArea]:
+            for cellObj in rowOfCellObjs:
+                if self.IsHeaderCell(cellObj):
+                    # print(cellObj.coordinate)
+                    # if upper cell has a value. It is parent of this cell
+                    if (cellObj.row > 1):
+                        upperCell = self.mSheet.cell(row=cellObj.row - 1, column=cellObj.column)
+                        upperValue = self.GetValueWithMergeLookup(upperCell) 
+                        parentHeader = upperValue
+                        header = cellObj.value
+                        coordinate = cellObj.coordinate
+                        headerStruct = (header, parentHeader, coordinate)
+                        headerList.append(headerStruct)
+        return headerList                        
+
+    def Open(self):
+        self.mWorkBook = openpyxl.load_workbook(self.mPath)
+        self.mSheet = self.mWorkBook[self.mDefaultSheetName]
+        self.mHeaderList = self.GetHeaderList()
+
+
+    def Write(self, headerStruct: list, rowOffset: int, value: str):
+        headerName = headerStruct[0]
+        parentName = headerStruct[1]
+        matchHeader = []
+        for header in self.mHeaderList:
+            if (header[0] == headerName):
+                if (parentName == None or header[1] == parentName):
+                    matchHeader.append(header[2])
+        if (len(matchHeader) == 0):
+            print("Cannot find header: ", headerName)
+            return
+        if (len(matchHeader) > 1):
+            print("More than one header: ", headerName)
+            return
+        print(matchHeader)
+        col = self.mSheet[matchHeader[0]].column
+        row = self.mSheet[matchHeader[0]].row + rowOffset
+        self.mSheet.cell(row=row, column=col).value = value    
+                
+    def Close(self):
+        self.mWorkBook.save(self.mPath)
+
 filePath = "D:/Workspace/SuportTool/testTargetList_template.xlsx"
-headerCoor = ["A1", "G2"]
-
-# get excel template.
-wb = openpyxl.load_workbook(filePath)
-sheet = wb["Sheet1"]    
-print(sheet.merged_cells.ranges)  
-
-# get value from merged cell
-def GetValueWithMergeLookup(sheet, cell):
-    idx = cell.coordinate
-    for cellRange in sheet.merged_cells.ranges:
-        merged_cells = list(openpyxl.utils.rows_from_range(cellRange.__str__()))
-        # print(29, merged_cells)
-        for ecell in merged_cells:
-            # print(ecell)
-            if idx in ecell:
-                # If this is a merged cell, return  the first cell of the merge range
-                # print(35, merged_cells[0])
-                return sheet[ecell[0]].value
-    return sheet[idx].value
-
-def IsHeaderCell(sheet, cell):
-    idx = cell.coordinate
-    for cellRange in sheet.merged_cells.ranges:
-        # get list of cells in range.
-        merged_cells = list(openpyxl.utils.rows_from_range(cellRange.__str__()))
-        for ecell in merged_cells:
-            # if this cell is in range, and this cell is the first cell.
-            if idx in ecell:
-                return ecell[0] == idx
-    # if this cell is not merged cell, check it value.                
-    return cell.value != None    
-
-
-
-
-headerCells = sheet[headerCoor[0]: headerCoor[1]]
-
-headerList = []
-# iterator each cell to determine struct
-for rowOfCellObjs in headerCells:
-    for cellObj in rowOfCellObjs:
-        if IsHeaderCell(sheet, cellObj):
-            # print(cellObj.coordinate)
-            # if upper cell has a value. It is parent of this cell
-            if (cellObj.row > 1):
-                upperCell = sheet.cell(row=cellObj.row - 1, column=cellObj.column)
-                upperValue = GetValueWithMergeLookup(sheet, upperCell) 
-                parentHeader = upperValue
-                header = cellObj.value
-                coordinate = cellObj.coordinate
-                headerStruct = (header, parentHeader, coordinate)
-                headerList.append(headerStruct)
-    
-for header in headerList:
+headerCoor = "A1:I2"
+outputFile = OutputFile(filePath, headerCoor)        
+for header in outputFile.mHeaderList:
     print(header)
 
+outputFile.Open()
+headerStruct = ["Start Date", "Test Duration"]
+outputFile.Write(headerStruct, 1, "Hello")    
+outputFile.Write(headerStruct, 2, "How")
+outputFile.Write(headerStruct, 3, "are")
+outputFile.Write(headerStruct, 4, "you")
+outputFile.Close()
 
 
 
