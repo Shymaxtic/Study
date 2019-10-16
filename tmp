@@ -37,7 +37,46 @@ print(beautifulBinaryString("BABBBA"))
 
 import openpyxl
 
-class OutputFile:
+D_HEADER_NAME   = 0
+D_PARENT_NAME   = 1
+D_CELL_INFO     = 2
+D_SEPERATOR     = ":"
+
+#   CellInfo: [cell : openpyxl.Cell, rowSize: int, columnSize: int]
+#   HeaderInfo: [headerCellInfo : CellInfo, parentInfo : HeaderInfo]
+#
+
+class CellInfo:
+    def __init__(self, cell, rowSize, columnSize):
+        self.mCell = cell
+        self.mRowSize = rowSize
+        self.mColumnSize = columnSize
+
+    def __eq__(self, other): 
+        if not isinstance(other, CellInfo):
+            # don't attempt to compare against unrelated types
+            return NotImplemented
+        return "CellInfo " + self.mCell == other.mCell and self.mRowSize == other.mRowSize and self.mColumnSize == other.mColumnSize
+
+    def __str__(self):        
+        return self.mCell.__str__() + "::" + str(self.mRowSize) + "::" + str(self.mColumnSize)
+#===========================================================================================================================
+class HeaderInfo:
+    def __init__(self, cellInfo, parentHeaderInfo):
+        self.mHeaderCellInfo = cellInfo
+        self.mParenHeaderInfo = parentHeaderInfo
+
+    def __eq__(self, other): 
+        if not isinstance(other, HeaderInfo):
+            # don't attempt to compare against unrelated types
+            return NotImplemented
+        return self.mHeaderCellInfo == other.mHeaderCellInfo and self.mParenHeaderInfo == other.mParenHeaderInfo
+
+    def __str__(self):        
+        return "HeaderInfo " + self.mHeaderCellInfo.__str__()  + "::" + self.mParenHeaderInfo.__str__()     
+#===========================================================================================================================
+
+class ExcelFile:
     def __init__(self, path, headerArea):
         self.mDefaultSheetName = "Sheet1"
         self.mPath = path
@@ -45,107 +84,248 @@ class OutputFile:
         self.mWorkBook = None
         self.mSheet = None
         self.mHeaderList = []
+        self.mHeaderCellInfo = []
         self.mColumCount = 0
+        self.mData = []
 
     def GetValueWithMergeLookup(self, cell):
         idx = cell.coordinate
         for cellRange in self.mSheet.merged_cells.ranges:
-            merged_cells = list(openpyxl.utils.rows_from_range(cellRange.__str__()))
-            for ecell in merged_cells:
+            mergedCells = list(openpyxl.utils.rows_from_range(cellRange.__str__()))
+            for ecell in mergedCells:
                 # print(ecell)
                 if idx in ecell:
                     # If this is a merged cell, return  the first cell of the merge range
                     return self.mSheet[ecell[0]].value
         return self.mSheet[idx].value       
 
-    def IsHeaderCell(self, cell):
-        idx = cell.coordinate
+
+    def GetParentHeaderCell(self, cell):
+        for headerCellInfo in self.mHeaderCellInfo:
+            mergedCells = self.GetMergedCells(headerCellInfo)
+            if cell in mergedCells:
+                return headerCellInfo
+        return None                
+
+    def GetParentHeaderInfo(self, headerInfoList: list, cell):
+        for headerCellInfo in headerInfoList:
+            mergedCells = self.GetMergedCells(headerCellInfo.mHeaderCellInfo)
+            if cell in mergedCells:
+                return headerCellInfo
+        return None     
+
+
+    def GetMergedCells(self, cellInfo: CellInfo):
+        mergedCells = []
+        anchorRow = cellInfo.mCell.row
+        anchorCol = cellInfo.mCell.column
+        for row in range(cellInfo.mRowSize):
+            for col in range(cellInfo.mColumnSize):
+                mergedCells.append(self.mSheet.cell(row=anchorRow+row, column=anchorCol+col))
+        # print(mergedCells)                
+        return mergedCells                
+
+    # get list of main cell in header cell.
+    def GetHeaderCellInfo(self):
+        headerCellInfos = []
+        # get list of merged cell
+        mergedCellList = []
         for cellRange in self.mSheet.merged_cells.ranges:
-            # get list of cells in range.
-            merged_cells = list(openpyxl.utils.rows_from_range(cellRange.__str__()))
-            for ecell in merged_cells:
-                # if this cell is in range, and this cell is the first cell.
-                if idx in ecell:
-                    return ecell[0] == idx
-        # if this cell is not merged cell, check it value.                
-        return cell.value != None    
+            rowNum = len(self.mSheet[cellRange.__str__()])
+            colNum = len(self.mSheet[cellRange.__str__()][0])
+            cell = self.mSheet[cellRange.__str__()][0][0]
+            mergedCellList.append(CellInfo(cell, rowNum, colNum))
+
+        for rowOfCell in self.mSheet[self.mHeaderArea]:
+            for cell in rowOfCell:
+                if cell.value != None:
+                    # print(cell.coordinate, cell.value)
+                    cellInfo = CellInfo(cell, 1, 1)
+                    for ecellInfo in mergedCellList:
+                        # if this is the merged cell.
+                        if (cell == ecellInfo.mCell):
+                            cellInfo = ecellInfo
+                            break
+                    headerCellInfos.append(cellInfo)
+        return headerCellInfos                    
+
 
     def GetHeaderList(self):
-        headerList = []
+        self.mHeaderCellInfo = self.GetHeaderCellInfo()
+        headerInfoList = []
         # iterator each cell to determine struct
-        for rowOfCellObjs in self.mSheet[self.mHeaderArea]:
-            for cellObj in rowOfCellObjs:
-                if self.IsHeaderCell(cellObj):
-                    # print(cellObj.coordinate)
-                    # if upper cell has a value. It is parent of this cell
-                    if (cellObj.row > 1):
-                        upperCell = self.mSheet.cell(row=cellObj.row - 1, column=cellObj.column)
-                        upperValue = self.GetValueWithMergeLookup(upperCell) 
-                        parentHeader = upperValue
-                        header = cellObj.value
-                        coordinate = cellObj.coordinate
-                        headerStruct = [header, parentHeader, coordinate, cellObj]
-                        headerList.append(headerStruct)
-        return headerList                        
+        for cellInfo in self.mHeaderCellInfo:
+            cellObj = cellInfo.mCell
+            # print(cellObj.coordinate)
+            # parentHeader = None
+            parentHeaderInfo = None
+            if (cellObj.row > 1):
+                # if upper cell has a value. It is parent of this cell
+                upperCell = self.mSheet.cell(row=cellObj.row - 1, column=cellObj.column)
+                # parentCellInfo = self.GetParentHeaderCell(upperCell)
+                # upperValue = self.GetValueWithMergeLookup(upperCell) 
+                parentHeaderInfo = self.GetParentHeaderInfo(headerInfoList, upperCell)
+            #     parentHeader = upperValue
+            # header = cellObj.value
+            # headerStruct = [header, parentHeader, cellInfo]
+            headerInfo = HeaderInfo(cellInfo, parentHeaderInfo)
+            headerInfoList.append(headerInfo)
+        return headerInfoList                        
 
-    def Open(self):
+    def Open(self, sheetName='Sheet1'):
         self.mWorkBook = openpyxl.load_workbook(self.mPath)
+        self.mDefaultSheetName = sheetName
         self.mSheet = self.mWorkBook[self.mDefaultSheetName]
         self.mColumCount = len(self.mSheet[self.mHeaderArea][0])
-        self.mHeaderList = self.GetHeaderList()
+        self.mHeaderList = self.GetHeaderList()        
                 
     def Close(self):
         self.mWorkBook.save(self.mPath)
 
     def Write(self, headerStruct: list, rowOffset: int, value: str):
+        # header name
         headerName = headerStruct[0]
-        parentName = None if len(headerStruct) < 2 else headerStruct[1]
+        # list of parents
+        inputParentName = None 
+        if len(headerStruct) >= 2:
+            inputParentName = str('')
+            for i in range(1, len(headerStruct)):
+                seperator = D_SEPERATOR if i > 1 else ''
+                inputParentName = inputParentName + seperator + headerStruct[i]
+            # print("inputParentName=", inputParentName)
+
         matchHeader = []
-        for header in self.mHeaderList:
-            if (header[0] == headerName):
-                if (parentName == None or not parentName or header[1] == parentName):
-                    matchHeader.append(header[2])
+        for headerInfo in self.mHeaderList:
+            if (headerInfo.mHeaderCellInfo.mCell.value == headerName):
+                # prepare parent name.
+                parentName = ""
+                parentInfo = headerInfo.mParenHeaderInfo
+                while(parentInfo != None):
+                    seperator = "" if not parentName else D_SEPERATOR
+                    parentName = parentName + seperator + parentInfo.mHeaderCellInfo.mCell.value
+                    parentInfo = parentInfo.mParenHeaderInfo
+                # print("parentName=", parentName)
+                if (inputParentName == None or not inputParentName or inputParentName in parentName):
+                    matchHeader.append(headerInfo.mHeaderCellInfo)
+
         if (len(matchHeader) == 0):
-            print("Cannot find header: ", headerName)
-            return
+                print("Cannot find header: ", headerName)
+                return
         if (len(matchHeader) > 1):
             print("More than one header: ", headerName)
             return
         # print(matchHeader)
-        col = self.mSheet[matchHeader[0]].column
-        row = self.mSheet[matchHeader[0]].row + rowOffset
-        self.mSheet.cell(row=row, column=col).value = value    
+        col = matchHeader[0].mCell.column
+        row = (matchHeader[0].mCell.row + matchHeader[0].mRowSize - 1) + rowOffset
+        # print(row, col)
+        self.mSheet.cell(row=row, column=col).value = value                     
 
+
+
+
+    # get the name of most header name.
+    # TODO: should append parent name.
     def GetMostChildHeaderName(self, column: int):
+        headerName = ""
+        parentName = ""
         for i in range(len(self.mHeaderList), 0, -1):
-            if (self.mHeaderList[i-1][3].column == column):    
-                return self.mHeaderList[i-1][0]
-        return None                
+            headerInfo = self.mHeaderList[i-1]
+            if (headerInfo.mHeaderCellInfo.mCell.column == column):    
+                headerName = headerName + headerInfo.mHeaderCellInfo.mCell.value
+                parentInfo = headerInfo.mParenHeaderInfo
+                while(parentInfo != None):
+                    seperator = "" if not parentName else D_SEPERATOR
+                    parentName = parentName + seperator + parentInfo.mHeaderCellInfo.mCell.value
+                    parentInfo = parentInfo.mParenHeaderInfo    
+                break                    
+        headerName = headerName if not parentName else (headerName + D_SEPERATOR + parentName)                   
+        return headerName                
 
     def Read(self, rowOffset: int):
         returnValue = {}
         mostChildRow = int(self.mHeaderArea.split(":")[1][-1])
         for i in range(self.mColumCount):
             headerName = self.GetMostChildHeaderName(column=i+1)
+            # print(headerName)
             returnValue[headerName] = self.mSheet.cell(row=mostChildRow+rowOffset,column=i+1).value            
         return returnValue
 
 
-# Example
-outputFile = OutputFile("D:/Workspace/SuportTool/testTargetList_template.xlsx", "A1:J2")        
-outputFile.Open()
-# for i in range(1, 9):
-#     outputFile.Write(headerStruct=["Start Date", "Test Duration"],  rowOffset=i, value="10/10") 
-#     outputFile.Write(headerStruct=["End Date", "Test Duration"],    rowOffset=i, value="11/10")
-#     outputFile.Write(headerStruct=["Start Date", "Fix Duration"],   rowOffset=i, value="10/11") 
-#     outputFile.Write(headerStruct=["End Date", "Fix Duration"],     rowOffset=i, value="11/11")           
-#     outputFile.Write(headerStruct=["File Name", ""],                rowOffset=i, value="Test.cpp") 
-#     outputFile.Write(headerStruct=["Function Name", ""],            rowOffset=i, value="TestFunction")
-#     outputFile.Write(headerStruct=["C0"],                           rowOffset=i, value="100%")
-#     outputFile.Write(headerStruct=["C1"],                           rowOffset=i, value="100%")
-#     outputFile.Write(headerStruct=["Result"],                       rowOffset=i, value="OK")  
+    def ReadAll(self):
+        returnValue = []
+        rowValue = {}
+        rowOffset = 1
+        rowValue = self.Read(rowOffset)
+        stop = all(value==None for value in rowValue.values())
+        while (not stop):
+            returnValue.append(rowValue)
+            rowOffset += 1
+            rowValue = self.Read(rowOffset)
+            stop = all(value==None for value in rowValue.values())
+        return returnValue        
 
-val = outputFile.Read(rowOffset=1)
-print(112, val)
+    def LoadData(self):
+        self.mData = self.ReadAll()
 
-outputFile.Close()
+    # outputFields: [["C0", "Coverage"], ["C1", "Coverage"]]
+    # conditionFields: [{["File Name"]: "Test.cpp1"}]
+    # return [{"C0:Coverage" : "100%"}, {"C1:Coverage" : "100%"} ]
+
+    
+
+
+
+# Example Test
+# outputFile = ExcelFile("E:/Workspace/HiICS/SVN/deliverables/trunk/implementation/02. SupportTool/template/testTargetList_template.xlsx", 
+#                         "A1:Q2")        
+# outputFile.Open()
+# # # for header in outputFile.mHeaderList:
+# # #     print(header)
+# for i in range(1, 5):
+#     outputFile.Write(headerStruct=["File Name"], rowOffset=i, value="Test.cpp" + str(i)) 
+#     outputFile.Write(headerStruct=["Function Name"], rowOffset=i, value="TestFunction")
+#     outputFile.Write(headerStruct=["Steps"], rowOffset=i, value="10" + str(i))
+#     outputFile.Write(headerStruct=["difficulty"], rowOffset=i, value="1")
+#     outputFile.Write(headerStruct=["Start Date", "Test term"], rowOffset=i, value="10/1" + str(i)) 
+#     outputFile.Write(headerStruct=["End Date", "Test term"], rowOffset=i, value="11/1" + str(i))
+#     outputFile.Write(headerStruct=["evidence file name", ""], rowOffset=i, value="TestFunction.xlsx" + str(i))    
+#     outputFile.Write(headerStruct=["Result"], rowOffset=i, value="OK") 
+#     outputFile.Write(headerStruct=["test specification file name", ""], rowOffset=i, value="TestSpec.xlsx" + str(i))    
+#     outputFile.Write(headerStruct=["Problem", ""], rowOffset=i, value="No")    
+#     outputFile.Write(headerStruct=["C0"], rowOffset=i, value="100%" + str(i))
+#     outputFile.Write(headerStruct=["C1"], rowOffset=i, value="100%" + str(i))
+#     outputFile.Write(headerStruct=["MCDC"], rowOffset=i, value="60%" + str(i))  
+#     outputFile.Write(headerStruct=["remarks", ""], rowOffset=i, value="remark" + str(i)) 
+#     outputFile.Write(headerStruct=["Start Date", "Fix term"], rowOffset=i, value="09/10" + str(i)) 
+#     outputFile.Write(headerStruct=["End Date", "Fix term"], rowOffset=i, value="10/10" + str(i))
+# outputFile.Close()   
+
+# outputFile = ExcelFile("E:/Workspace/HiICS/SVN/deliverables/trunk/implementation/02. SupportTool/template/Summary_Template2.xlsx", 
+#                         "A2:R4")        
+
+# outputFile.Open(sheetName="RegularMeetingReportDocument")
+# for i in range(1, 5):
+#     outputFile.Write(headerStruct=["No."], rowOffset=i, value= str(i)) 
+#     outputFile.Write(headerStruct=["Test request"], rowOffset=i, value="TestFunction")
+#     outputFile.Write(headerStruct=["Unit test\nStarted date"], rowOffset=i, value="10/1" + str(i))
+#     outputFile.Write(headerStruct=["Unit test\nFinished date"], rowOffset=i, value="11/1" + str(i))
+#     outputFile.Write(headerStruct=["Target\n(KPI)"], rowOffset=i, value= "100" + str(i)) 
+#     outputFile.Write(headerStruct=["Actual results\n(Actual Productivity)"], rowOffset=i, value="99" + str(i))
+#     outputFile.Write(headerStruct=["Actual results\n(Actual Productivity)\n(Based 70 LOCs)"], rowOffset=i, value="1000" + str(i))    
+#     outputFile.Write(headerStruct=["Productivity achievement rate（Actual results/Target＊100％）"], rowOffset=i, value="10" + str(i)) 
+#     outputFile.Write(headerStruct=["Cross check's technical identification\n(Record/KLOC)"], rowOffset=i, value="TestSpec.xlsx" + str(i))    
+#     outputFile.Write(headerStruct=["Cross check's document identification\n(record/25 functions）"], rowOffset=i, value="No")    
+#     outputFile.Write(headerStruct=["HiICS's technical identification\n（record/KLOC）"], rowOffset=i, value="100%" + str(i))
+#     outputFile.Write(headerStruct=["HiICS's document identification\n(record/25 function）"], rowOffset=i, value="100%" + str(i))
+#     outputFile.Write(headerStruct=["The number of digestion function\n(Function)"], rowOffset=i, value="60%" + str(i))  
+#     outputFile.Write(headerStruct=["The digestion scale\n(KLOC)"], rowOffset=i, value="remark" + str(i)) 
+#     outputFile.Write(headerStruct=["Technical identification", "Internal\n(PRDefect)"], rowOffset=i, value="09/10" + str(i)) 
+#     outputFile.Write(headerStruct=["Document identification", "Internal\n(PRDefect)"], rowOffset=i, value="10/10" + str(i))
+#     outputFile.Write(headerStruct=["Technical identification", "HiICS's identification"], rowOffset=i, value="09/10" + str(i)) 
+#     outputFile.Write(headerStruct=["Document identification", "HiICS's identification"], rowOffset=i, value="10/10" + str(i))
+
+# val = outputFile.Read(rowOffset=1)
+# for key in val:
+#     print(key,":", val[key])
+
+# outputFile.Close()   
