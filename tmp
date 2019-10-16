@@ -65,15 +65,28 @@ class HeaderInfo:
     def __init__(self, cellInfo, parentHeaderInfo):
         self.mHeaderCellInfo = cellInfo
         self.mParenHeaderInfo = parentHeaderInfo
+        self.mFullName = self.GetFullHeaderName()
 
     def __eq__(self, other): 
         if not isinstance(other, HeaderInfo):
             # don't attempt to compare against unrelated types
             return NotImplemented
-        return self.mHeaderCellInfo == other.mHeaderCellInfo and self.mParenHeaderInfo == other.mParenHeaderInfo
+        return self.mHeaderCellInfo == other.mHeaderCellInfo and \
+                self.mParenHeaderInfo == other.mParenHeaderInfo and \
+                self.mFullName == other.mFullName
 
     def __str__(self):        
-        return "HeaderInfo " + self.mHeaderCellInfo.__str__()  + "::" + self.mParenHeaderInfo.__str__()     
+        # + self.mParenHeaderInfo.__str__() + "::"
+        return "HeaderInfo " + self.mHeaderCellInfo.__str__()  + "::"  + self.mFullName 
+
+    def GetFullHeaderName(self):
+        headerName = self.mHeaderCellInfo.mCell.value
+        parentName = ""
+        parentInfo = self.mParenHeaderInfo
+        while (parentInfo != None):
+            parentName = parentName + D_SEPERATOR + parentInfo.mHeaderCellInfo.mCell.value
+            parentInfo = parentInfo.mParenHeaderInfo
+        return headerName + parentName
 #===========================================================================================================================
 
 class ExcelFile:
@@ -156,18 +169,11 @@ class ExcelFile:
         # iterator each cell to determine struct
         for cellInfo in self.mHeaderCellInfo:
             cellObj = cellInfo.mCell
-            # print(cellObj.coordinate)
-            # parentHeader = None
             parentHeaderInfo = None
             if (cellObj.row > 1):
                 # if upper cell has a value. It is parent of this cell
                 upperCell = self.mSheet.cell(row=cellObj.row - 1, column=cellObj.column)
-                # parentCellInfo = self.GetParentHeaderCell(upperCell)
-                # upperValue = self.GetValueWithMergeLookup(upperCell) 
                 parentHeaderInfo = self.GetParentHeaderInfo(headerInfoList, upperCell)
-            #     parentHeader = upperValue
-            # header = cellObj.value
-            # headerStruct = [header, parentHeader, cellInfo]
             headerInfo = HeaderInfo(cellInfo, parentHeaderInfo)
             headerInfoList.append(headerInfo)
         return headerInfoList                        
@@ -182,37 +188,17 @@ class ExcelFile:
     def Close(self):
         self.mWorkBook.save(self.mPath)
 
-    def Write(self, headerStruct: list, rowOffset: int, value: str):
-        # header name
-        headerName = headerStruct[0]
-        # list of parents
-        inputParentName = None 
-        if len(headerStruct) >= 2:
-            inputParentName = str('')
-            for i in range(1, len(headerStruct)):
-                seperator = D_SEPERATOR if i > 1 else ''
-                inputParentName = inputParentName + seperator + headerStruct[i]
-            # print("inputParentName=", inputParentName)
-
+    def Write(self, headerStruct: str, rowOffset: int, value: str):
         matchHeader = []
         for headerInfo in self.mHeaderList:
-            if (headerInfo.mHeaderCellInfo.mCell.value == headerName):
-                # prepare parent name.
-                parentName = ""
-                parentInfo = headerInfo.mParenHeaderInfo
-                while(parentInfo != None):
-                    seperator = "" if not parentName else D_SEPERATOR
-                    parentName = parentName + seperator + parentInfo.mHeaderCellInfo.mCell.value
-                    parentInfo = parentInfo.mParenHeaderInfo
-                # print("parentName=", parentName)
-                if (inputParentName == None or not inputParentName or inputParentName in parentName):
-                    matchHeader.append(headerInfo.mHeaderCellInfo)
+            if (headerStruct in headerInfo.mFullName):
+                matchHeader.append(headerInfo.mHeaderCellInfo)
 
         if (len(matchHeader) == 0):
-                print("Cannot find header: ", headerName)
+                print("Cannot find header: ", headerStruct)
                 return
         if (len(matchHeader) > 1):
-            print("More than one header: ", headerName)
+            print("More than one header: ", headerStruct)
             return
         # print(matchHeader)
         col = matchHeader[0].mCell.column
@@ -220,26 +206,14 @@ class ExcelFile:
         # print(row, col)
         self.mSheet.cell(row=row, column=col).value = value                     
 
-
-
-
     # get the name of most header name.
     # TODO: should append parent name.
     def GetMostChildHeaderName(self, column: int):
-        headerName = ""
-        parentName = ""
         for i in range(len(self.mHeaderList), 0, -1):
             headerInfo = self.mHeaderList[i-1]
             if (headerInfo.mHeaderCellInfo.mCell.column == column):    
-                headerName = headerName + headerInfo.mHeaderCellInfo.mCell.value
-                parentInfo = headerInfo.mParenHeaderInfo
-                while(parentInfo != None):
-                    seperator = "" if not parentName else D_SEPERATOR
-                    parentName = parentName + seperator + parentInfo.mHeaderCellInfo.mCell.value
-                    parentInfo = parentInfo.mParenHeaderInfo    
-                break                    
-        headerName = headerName if not parentName else (headerName + D_SEPERATOR + parentName)                   
-        return headerName                
+                return headerInfo.mFullName
+        return ""                
 
     def Read(self, rowOffset: int):
         returnValue = {}
@@ -267,9 +241,19 @@ class ExcelFile:
     def LoadData(self):
         self.mData = self.ReadAll()
 
-    # outputFields: [["C0", "Coverage"], ["C1", "Coverage"]]
-    # conditionFields: [{["File Name"]: "Test.cpp1"}]
+
+    def GetHeaderInfo(self, name: str):
+        foundHeader = []
+        for headerInfo in self.mHeaderList:
+            if name in headerInfo.mFullName:
+                foundHeader.append(headerInfo)
+        return foundHeader
+
+    # outputFields: ["C0:Coverage", "C1:Coverage"]
+    # conditionFields: [{"File Name": "Test.cpp1"}, {"Function Name": "TestFunction"}]
     # return [{"C0:Coverage" : "100%"}, {"C1:Coverage" : "100%"} ]
+    def ReadCond(self, outputFields: list, conditionFields: list):
+        
 
     
 
