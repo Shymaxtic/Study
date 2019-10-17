@@ -86,49 +86,34 @@ class HeaderInfo:
         while (parentInfo != None):
             parentName = parentName + D_SEPERATOR + parentInfo.mHeaderCellInfo.mCell.value
             parentInfo = parentInfo.mParenHeaderInfo
-        return headerName + parentName
+        return headerName + parentName + D_SEPERATOR
 #===========================================================================================================================
 
 class ExcelFile:
-    def __init__(self, path, headerArea):
+    def __init__(self, path):
         self.mDefaultSheetName = "Sheet1"
         self.mPath = path
-        self.mHeaderArea = headerArea
+        self.mHeaderArea = ""
         self.mWorkBook = None
         self.mSheet = None
-        self.mHeaderList = []
-        self.mHeaderCellInfo = []
-        self.mColumCount = 0
-        self.mData = []
-
-    def GetValueWithMergeLookup(self, cell):
-        idx = cell.coordinate
-        for cellRange in self.mSheet.merged_cells.ranges:
-            mergedCells = list(openpyxl.utils.rows_from_range(cellRange.__str__()))
-            for ecell in mergedCells:
-                # print(ecell)
-                if idx in ecell:
-                    # If this is a merged cell, return  the first cell of the merge range
-                    return self.mSheet[ecell[0]].value
-        return self.mSheet[idx].value       
-
-
-    def GetParentHeaderCell(self, cell):
-        for headerCellInfo in self.mHeaderCellInfo:
-            mergedCells = self.GetMergedCells(headerCellInfo)
-            if cell in mergedCells:
-                return headerCellInfo
-        return None                
-
-    def GetParentHeaderInfo(self, headerInfoList: list, cell):
+        self.mHeaderList = []       
+        self.mHeaderCellInfo = []           # list of info of main cell of header
+        self.mColumCount = 0 # number of column header
+        self.mRowCont  = 0 # number of data row
+        self.mDictData = {}     
+ 
+    # Get parent header infor this cell belongs to (this cell is in parent header)
+    # return HeaderInfo or None
+    def __GetParentHeaderInfo(self, headerInfoList: list, cell):
         for headerCellInfo in headerInfoList:
-            mergedCells = self.GetMergedCells(headerCellInfo.mHeaderCellInfo)
+            mergedCells = self.__GetMergedCells(headerCellInfo.mHeaderCellInfo)
             if cell in mergedCells:
                 return headerCellInfo
         return None     
 
-
-    def GetMergedCells(self, cellInfo: CellInfo):
+    # Get all merged cells are in a CellInfo object
+    # return list of Cells    
+    def __GetMergedCells(self, cellInfo: CellInfo):
         mergedCells = []
         anchorRow = cellInfo.mCell.row
         anchorCol = cellInfo.mCell.column
@@ -138,8 +123,9 @@ class ExcelFile:
         # print(mergedCells)                
         return mergedCells                
 
-    # get list of main cell in header cell.
-    def GetHeaderCellInfo(self):
+    # Get list of main cell info in header.
+    # return list of CellInfo (s)
+    def __GetHeaderCellInfo(self):
         headerCellInfos = []
         # get list of merged cell
         mergedCellList = []
@@ -163,8 +149,9 @@ class ExcelFile:
         return headerCellInfos                    
 
 
-    def GetHeaderList(self):
-        self.mHeaderCellInfo = self.GetHeaderCellInfo()
+    # Get list of header info
+    def __GetHeaderList(self):
+        self.mHeaderCellInfo = self.__GetHeaderCellInfo()
         headerInfoList = []
         # iterator each cell to determine struct
         for cellInfo in self.mHeaderCellInfo:
@@ -173,27 +160,84 @@ class ExcelFile:
             if (cellObj.row > 1):
                 # if upper cell has a value. It is parent of this cell
                 upperCell = self.mSheet.cell(row=cellObj.row - 1, column=cellObj.column)
-                parentHeaderInfo = self.GetParentHeaderInfo(headerInfoList, upperCell)
+                parentHeaderInfo = self.__GetParentHeaderInfo(headerInfoList, upperCell)
             headerInfo = HeaderInfo(cellInfo, parentHeaderInfo)
             headerInfoList.append(headerInfo)
-        return headerInfoList                        
+        return headerInfoList               
 
-    def Open(self, sheetName='Sheet1'):
+    # Check if a name is a header full name. Ex: Function is a name of header full name Function:PIC:Company
+    def __CheckMatchHeader(self, inputStr:str, headerFullName:str):
+        if (inputStr == headerFullName):
+            return True
+        inputStruct = inputStr.split(D_SEPERATOR, 1)
+        checkStruct = headerFullName.split(D_SEPERATOR, 1)
+        if (inputStruct[0] == checkStruct[0]):
+            if len(inputStruct) > 1 and len(checkStruct) > 1:
+                if inputStruct[1] and inputStruct[1] in checkStruct[1]:
+                    return True
+                else:
+                    return False                    
+            else:
+                return True
+        return False  
+
+    # Get list of matched header with a input name
+    # headerStruct: "End Date:Test term"
+    # return list of CellInfo (s)
+    def __GetMatchHeader(self, headerStruct: str):
+        matchHeader = []
+        for headerInfo in self.mHeaderList:
+            if (self.__CheckMatchHeader(headerStruct, headerInfo.mFullName)):
+                matchHeader.append(headerInfo.mHeaderCellInfo)
+        return matchHeader     
+
+    # Get the name of most header name. Ex "Function:PIC:Company"
+    # return str
+    def __GetMostChildHeaderName(self, column: int):
+        for i in range(len(self.mHeaderList), 0, -1):
+            headerInfo = self.mHeaderList[i-1]
+            if (headerInfo.mHeaderCellInfo.mCell.column == column):    
+                return headerInfo.mFullName
+        return ""                
+
+    # Load all data and store to mDictData                                
+    def __LoadData(self):
+        rowValue = {}
+        rowOffset = 1
+        rowValue = self.Read(rowOffset)
+        stop = all(value==None for value in rowValue.values())
+        # init key for data
+        for key in rowValue:
+            self.mDictData[key] = []
+        while (not stop):
+            # load each field of row value to mDictData
+            # print(rowValue)
+            for key in rowValue:
+                self.mDictData[key].append(rowValue[key])
+            self.mRowCont += 1
+            rowOffset += 1
+            rowValue = self.Read(rowOffset)
+            stop = all(value==None for value in rowValue.values())
+
+    # Open file
+    def Open(self, sheetName, headerArea):
+        self.mHeaderArea = headerArea
         self.mWorkBook = openpyxl.load_workbook(self.mPath)
         self.mDefaultSheetName = sheetName
         self.mSheet = self.mWorkBook[self.mDefaultSheetName]
         self.mColumCount = len(self.mSheet[self.mHeaderArea][0])
-        self.mHeaderList = self.GetHeaderList()        
-                
+        self.mHeaderList = self.__GetHeaderList()   
+        self.__LoadData()     
+
+    # Close file                
     def Close(self):
         self.mWorkBook.save(self.mPath)
-
-    def Write(self, headerStruct: str, rowOffset: int, value: str):
-        matchHeader = []
-        for headerInfo in self.mHeaderList:
-            if (headerStruct in headerInfo.mFullName):
-                matchHeader.append(headerInfo.mHeaderCellInfo)
-
+                 
+    # Get a cell at header name and row offset. Row offset start at 1
+    # Ex: GetCellAt("Function:PIC:Company", 1):
+    # return Cell                 
+    def GetCellAt(self, headerStruct: str, rowOffset: int):
+        matchHeader = self.__GetMatchHeader(headerStruct)
         if (len(matchHeader) == 0):
                 print("Cannot find header: ", headerStruct)
                 return
@@ -204,112 +248,129 @@ class ExcelFile:
         col = matchHeader[0].mCell.column
         row = (matchHeader[0].mCell.row + matchHeader[0].mRowSize - 1) + rowOffset
         # print(row, col)
-        self.mSheet.cell(row=row, column=col).value = value                     
+        return self.mSheet.cell(row=row, column=col)
 
-    # get the name of most header name.
-    # TODO: should append parent name.
-    def GetMostChildHeaderName(self, column: int):
-        for i in range(len(self.mHeaderList), 0, -1):
-            headerInfo = self.mHeaderList[i-1]
-            if (headerInfo.mHeaderCellInfo.mCell.column == column):    
-                return headerInfo.mFullName
-        return ""                
+    # Write to cell at header name and row offset.
+    def Write(self, headerStruct: str, rowOffset: int, value: str):
+        cell = self.GetCellAt(headerStruct, rowOffset)
+        cell.value = value                     
 
+    # Read data of a row offset
+    # return Dictionary. Ex {"Name": "Person1", 
+    #                       "Function": "API"}
     def Read(self, rowOffset: int):
         returnValue = {}
         mostChildRow = int(self.mHeaderArea.split(":")[1][-1])
         for i in range(self.mColumCount):
-            headerName = self.GetMostChildHeaderName(column=i+1)
+            headerName = self.__GetMostChildHeaderName(column=i+1)
             # print(headerName)
             returnValue[headerName] = self.mSheet.cell(row=mostChildRow+rowOffset,column=i+1).value            
         return returnValue
 
-
-    def ReadAll(self):
+    def ReadAtField(self, headerName: str):
         returnValue = []
+        matchHeader = self.__GetMatchHeader(headerName)
+        if (len(matchHeader) == 0):
+                print("Cannot find header: ", headerName)
+                return
+        if (len(matchHeader) > 1):
+            print("More than one header: ", headerName)
+            return
+        # print(matchHeader)
+        col = matchHeader[0].mCell.column
+        for i in range(1, self.mRowCont + 1):
+            row = (matchHeader[0].mCell.row + matchHeader[0].mRowSize - 1) + i
+            returnValue.append(self.mSheet.cell(row=row, column=col).value)
+        return returnValue
+
+
+    # Read all data 
+    # return Dictionary. Ex {"Name": ["Person1", "Person2", "Person3"],
+    #                       "Function": ["API1", "API2", "API3"]}
+    def ReadAll(self):
         rowValue = {}
         rowOffset = 1
         rowValue = self.Read(rowOffset)
+        retValue = {}
         stop = all(value==None for value in rowValue.values())
+        # init key for data
+        for key in rowValue:
+            key = key[:-1]  # fix bug header name has last :
+            retValue[key] = []
         while (not stop):
-            returnValue.append(rowValue)
+            # load each field of row value to retValue
+            # print(rowValue)
+            for key in rowValue:
+                keyret = key[:-1]  # fix bug header name has last :
+                retValue[keyret].append(rowValue[key])
             rowOffset += 1
             rowValue = self.Read(rowOffset)
-            stop = all(value==None for value in rowValue.values())
-        return returnValue        
+            stop = all(value==None for value in rowValue.values())      
+        return retValue            
 
-    def LoadData(self):
-        self.mData = self.ReadAll()
-
-
-    def GetHeaderInfo(self, name: str):
-        foundHeader = []
-        for headerInfo in self.mHeaderList:
-            if name in headerInfo.mFullName:
-                foundHeader.append(headerInfo)
-        return foundHeader
-
+    # Read data at conditions
     # outputFields: ["C0:Coverage", "C1:Coverage"]
-    # conditionFields: [{"File Name": "Test.cpp1"}, {"Function Name": "TestFunction"}]
-    # return [{"C0:Coverage" : "100%"}, {"C1:Coverage" : "100%"} ]
-    def ReadCond(self, outputFields: list, conditionFields: list):
-        
+    # conditionFields: {"File Name": "Test.cpp1", "Function Name": "TestFunction"}
+    # return {"C0:Coverage" : ["100%"], "C1:Coverage" : ["100%"]} 
+    def ReadCond(self, outputFields: list, conditionFields):
+        if (not self.mDictData):
+            self.__LoadData()
+        # check if output fields is unique
+        matchOutputKeys = {}
+        returnVal = {}
+        outputPairKey = []
+        # conditionPairKey = []
+        for outputField in outputFields:   # outputField is header name
+            tmpKeys = []
+            for key in self.mDictData: # key is header full name
+                if (self.__CheckMatchHeader(outputField, key)):
+                    tmpKeys.append(key)
+            if (len(tmpKeys) > 1):
+                print("More than one output field: ", outputField)
+                return
+            if (len(tmpKeys) == 0):
+                print("Cannot find output field: ", outputField)                
+                return
+            matchOutputKeys[tmpKeys[0]] = [] 
+            returnVal[outputField] = []
+            outputPairKey.append((tmpKeys[0], outputField))
+        # print("matchOutputKeys=", matchOutputKeys)              
+        # print("returnVal=", returnVal)       
+        # print("outputPairKey=", outputPairKey)
+        # check if condition field is unique
+        matchConditionKeys = {}
+        conditionFields.keys
+        for conditionField in conditionFields: # conditionField is header name
+            tmpKeys = []
+            for key in self.mDictData: # key is header full name
+                if (self.__CheckMatchHeader(conditionField, key)):
+                    tmpKeys.append(key)
+            if (len(tmpKeys) > 1):
+                print("More than one condition field: ", conditionField)
+                return    
+            if (len(tmpKeys) == 0):
+                print("Cannot find output condition: ", conditionField)                
+                return     
+            # conditionPairKey.append((tmpKeys[0], conditionField))   
+            matchConditionKeys[tmpKeys[0]] = conditionFields[conditionField]        
+        # print("matchConditionKeys=", matchConditionKeys)                                                                                            
+        # get index of condition field if equal value
+        indexs = []
+        for key in matchConditionKeys:
+            for i, val in enumerate(self.mDictData[key]):
+                if (val == matchConditionKeys[key]):
+                   indexs.append(i)
+        # print(indexs)                
+        # get index has more one time
+        numOfcond = len(matchConditionKeys)
+        matchIdex = set([x for x in indexs if indexs.count(x) == numOfcond])                            
+        # print(matchIdex)
+        for key in matchOutputKeys:
+            for i in matchIdex:
+                matchOutputKeys[key].append(self.mDictData[key][i])
+        # print(matchOutputKeys) 
+        for pair in outputPairKey:
+            returnVal[pair[1]] = matchOutputKeys[pair[0]]      
 
-    
-
-
-
-# Example Test
-# outputFile = ExcelFile("E:/Workspace/HiICS/SVN/deliverables/trunk/implementation/02. SupportTool/template/testTargetList_template.xlsx", 
-#                         "A1:Q2")        
-# outputFile.Open()
-# # # for header in outputFile.mHeaderList:
-# # #     print(header)
-# for i in range(1, 5):
-#     outputFile.Write(headerStruct=["File Name"], rowOffset=i, value="Test.cpp" + str(i)) 
-#     outputFile.Write(headerStruct=["Function Name"], rowOffset=i, value="TestFunction")
-#     outputFile.Write(headerStruct=["Steps"], rowOffset=i, value="10" + str(i))
-#     outputFile.Write(headerStruct=["difficulty"], rowOffset=i, value="1")
-#     outputFile.Write(headerStruct=["Start Date", "Test term"], rowOffset=i, value="10/1" + str(i)) 
-#     outputFile.Write(headerStruct=["End Date", "Test term"], rowOffset=i, value="11/1" + str(i))
-#     outputFile.Write(headerStruct=["evidence file name", ""], rowOffset=i, value="TestFunction.xlsx" + str(i))    
-#     outputFile.Write(headerStruct=["Result"], rowOffset=i, value="OK") 
-#     outputFile.Write(headerStruct=["test specification file name", ""], rowOffset=i, value="TestSpec.xlsx" + str(i))    
-#     outputFile.Write(headerStruct=["Problem", ""], rowOffset=i, value="No")    
-#     outputFile.Write(headerStruct=["C0"], rowOffset=i, value="100%" + str(i))
-#     outputFile.Write(headerStruct=["C1"], rowOffset=i, value="100%" + str(i))
-#     outputFile.Write(headerStruct=["MCDC"], rowOffset=i, value="60%" + str(i))  
-#     outputFile.Write(headerStruct=["remarks", ""], rowOffset=i, value="remark" + str(i)) 
-#     outputFile.Write(headerStruct=["Start Date", "Fix term"], rowOffset=i, value="09/10" + str(i)) 
-#     outputFile.Write(headerStruct=["End Date", "Fix term"], rowOffset=i, value="10/10" + str(i))
-# outputFile.Close()   
-
-# outputFile = ExcelFile("E:/Workspace/HiICS/SVN/deliverables/trunk/implementation/02. SupportTool/template/Summary_Template2.xlsx", 
-#                         "A2:R4")        
-
-# outputFile.Open(sheetName="RegularMeetingReportDocument")
-# for i in range(1, 5):
-#     outputFile.Write(headerStruct=["No."], rowOffset=i, value= str(i)) 
-#     outputFile.Write(headerStruct=["Test request"], rowOffset=i, value="TestFunction")
-#     outputFile.Write(headerStruct=["Unit test\nStarted date"], rowOffset=i, value="10/1" + str(i))
-#     outputFile.Write(headerStruct=["Unit test\nFinished date"], rowOffset=i, value="11/1" + str(i))
-#     outputFile.Write(headerStruct=["Target\n(KPI)"], rowOffset=i, value= "100" + str(i)) 
-#     outputFile.Write(headerStruct=["Actual results\n(Actual Productivity)"], rowOffset=i, value="99" + str(i))
-#     outputFile.Write(headerStruct=["Actual results\n(Actual Productivity)\n(Based 70 LOCs)"], rowOffset=i, value="1000" + str(i))    
-#     outputFile.Write(headerStruct=["Productivity achievement rate（Actual results/Target＊100％）"], rowOffset=i, value="10" + str(i)) 
-#     outputFile.Write(headerStruct=["Cross check's technical identification\n(Record/KLOC)"], rowOffset=i, value="TestSpec.xlsx" + str(i))    
-#     outputFile.Write(headerStruct=["Cross check's document identification\n(record/25 functions）"], rowOffset=i, value="No")    
-#     outputFile.Write(headerStruct=["HiICS's technical identification\n（record/KLOC）"], rowOffset=i, value="100%" + str(i))
-#     outputFile.Write(headerStruct=["HiICS's document identification\n(record/25 function）"], rowOffset=i, value="100%" + str(i))
-#     outputFile.Write(headerStruct=["The number of digestion function\n(Function)"], rowOffset=i, value="60%" + str(i))  
-#     outputFile.Write(headerStruct=["The digestion scale\n(KLOC)"], rowOffset=i, value="remark" + str(i)) 
-#     outputFile.Write(headerStruct=["Technical identification", "Internal\n(PRDefect)"], rowOffset=i, value="09/10" + str(i)) 
-#     outputFile.Write(headerStruct=["Document identification", "Internal\n(PRDefect)"], rowOffset=i, value="10/10" + str(i))
-#     outputFile.Write(headerStruct=["Technical identification", "HiICS's identification"], rowOffset=i, value="09/10" + str(i)) 
-#     outputFile.Write(headerStruct=["Document identification", "HiICS's identification"], rowOffset=i, value="10/10" + str(i))
-
-# val = outputFile.Read(rowOffset=1)
-# for key in val:
-#     print(key,":", val[key])
-
-# outputFile.Close()   
+        # print(returnVal)                 
+        return returnVal
