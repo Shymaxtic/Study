@@ -416,7 +416,7 @@ DisplayStatus(tContext *psContext, char *pcStatus)
 //
 //*****************************************************************************
 uint32_t
-TxHandler(void *pvCBData, uint32_t ui32Event, uint32_t ui32MsgValue,
+USBTxHandler(void *pvCBData, uint32_t ui32Event, uint32_t ui32MsgValue,
           void *pvMsgData)
 {
     //
@@ -454,7 +454,7 @@ TxHandler(void *pvCBData, uint32_t ui32Event, uint32_t ui32MsgValue,
 //
 //*****************************************************************************
 uint32_t
-RxHandler(void *pvCBData, uint32_t ui32Event, uint32_t ui32MsgValue,
+USBRxHandler(void *pvCBData, uint32_t ui32Event, uint32_t ui32MsgValue,
           void *pvMsgData)
 {
     //
