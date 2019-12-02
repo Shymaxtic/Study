@@ -31,4 +31,53 @@ def beautifulBinaryString(binaryString):
     return True
     
     
-print(beautifulBinaryString("BABBBA"))
+print(beautifulBinaryString("BABBBA")) 
+D_FUNC_ID_KEY = "funcid"
+D_TESTSPEC_KEY = "testspecpath"
+D_TESTSCRIPT_KEY = "testscriptpath"
+D_CANTATA_RESULT_XML_KEY = "canataxml"
+D_CANTATA_RESULT_HTML_KEY = "cantatahtml"
+
+class ReleaseManager:
+    def __init__(self):
+        self.mSvnPath = ""
+        self.mInprogressPath = ""
+        self.mReleasePath = ""
+        self.mReleaseStuffs = []
+        self.mLogData = {}
+        pass
+
+    def LoadConfig(self):
+        pass
+
+    def LoadReleaseInfo(self):
+        # read assignee file to get self.mReleaseStuffs
+        pass
+
+    def CheckRequiredData(self):
+        for testSpecMng in self.mReleaseStuffs:
+            errorMsg = testSpecMng.CheckRequiredData()
+            # if has error. prepare for log file
+            if errorMsg:
+                if testSpecMng.mPIC not in self.mLogData:
+                    self.mLogData[testSpecMng.mPIC] = {}
+                if testSpecMng.mId not in self.mLogData[testSpecMng.mPIC]:
+                    self.mLogData[testSpecMng.mPIC][testSpecMng.mId] = []
+                self.mLogData[testSpecMng.mPIC][testSpecMng.mId] += errorMsg
+
+    def CheckCorrectFormat(self):
+        for testSpecMng in self.mReleaseStuffs:
+            errorMsg = testSpecMng.CheckCorrectFormat()
+            # if has error. prepare for log file
+            if errorMsg:
+                if testSpecMng.mPIC not in self.mLogData:
+                    self.mLogData[testSpecMng.mPIC] = {}
+                if testSpecMng.mId not in self.mLogData[testSpecMng.mPIC]:
+                    self.mLogData[testSpecMng.mPIC][testSpecMng.mId] = []
+                self.mLogData[testSpecMng.mPIC][testSpecMng.mId] += errorMsg
+
+    def CopyStuff(self):
+        pass
+
+    def LogFile(self):
+        pass
