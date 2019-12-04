@@ -34,9 +34,9 @@
 //*****************************************************************************
 #define BULK_BUFFER_SIZE 512
 
-extern uint32_t RxHandler(void *pvCBData, uint32_t ui32Event,
+extern uint32_t USBRxHandler(void *pvCBData, uint32_t ui32Event,
                                uint32_t ui32MsgValue, void *pvMsgData);
-extern uint32_t TxHandler(void *pvi32CBData, uint32_t ui32Event,
+extern uint32_t USBTxHandler(void *pvi32CBData, uint32_t ui32Event,
                                uint32_t ui32MsgValue, void *pvMsgData);
 
 extern tUSBBuffer g_sTxBuffer;

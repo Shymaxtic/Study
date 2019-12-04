@@ -165,7 +165,7 @@ uint8_t g_pui8USBRxBuffer[BULK_BUFFER_SIZE];
 tUSBBuffer g_sRxBuffer =
 {
     false,                           // This is a receive buffer.
-    RxHandler,                       // pfnCallback
+    USBRxHandler,                       // pfnCallback
     (void *)&g_sBulkDevice,          // Callback data is our device pointer.
     USBDBulkPacketRead,              // pfnTransfer
     USBDBulkRxPacketAvailable,       // pfnAvailable
@@ -183,7 +183,7 @@ uint8_t g_pui8USBTxBuffer[BULK_BUFFER_SIZE];
 tUSBBuffer g_sTxBuffer =
 {
     true,                            // This is a transmit buffer.
-    TxHandler,                       // pfnCallback
+    USBTxHandler,                       // pfnCallback
     (void *)&g_sBulkDevice,          // Callback data is our device pointer.
     USBDBulkPacketWrite,             // pfnTransfer
     USBDBulkTxPacketAvailable,       // pfnAvailable
