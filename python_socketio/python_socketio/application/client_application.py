@@ -50,8 +50,13 @@ class ClientApplication:
     def start(self, server_address, **kwargs):
         print('start', threading.get_ident())
         self.mIsRunning = True
-        ClientApplication.sio.connect(server_address)
-        # ClientApplication.sio.wait()
+        print('start client')
+        ClientApplication.sio.connect(url=server_address,
+                                        headers={'X-Connect-Key': '123abc'}) # naming convention custom header name: X-Header-Name
+
+        time.sleep(1)                                        
+        ClientApplication.sio.emit(event='on_client_message', data={})
+        ClientApplication.sio.wait()
 
     def stop(self, **kwargs):
         #TODO: disconnect

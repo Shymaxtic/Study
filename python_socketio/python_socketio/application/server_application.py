@@ -1,6 +1,7 @@
 import gevent
 from gevent import pywsgi
 import socketio, traceback
+from pprint import pprint
 
 class ServerApplication:
     """
@@ -36,7 +37,8 @@ class ServerApplication:
         """
             event occurs when client has connected.
         """
-        print('client connected:', sid, environ)
+        print('client connected:', sid)
+        pprint(environ)
 
     @staticmethod
     @sio.event
