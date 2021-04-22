@@ -1,4 +1,4 @@
 # Study
 Study resource
-Examples for studing.
+Examples for studying.
 Quynh
